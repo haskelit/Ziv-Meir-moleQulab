@@ -3,16 +3,52 @@ import matplotlib.pyplot as plt
 import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import os
+
+def create_complementary_arc_length(arc_length):
+    diff = np.diff(arc_length)
+    complementary_arc_length = np.zeros(len(arc_length))
+    diff = diff[::-1]
+    for i in range(1, len(arc_length)):
+        complementary_arc_length[i] = complementary_arc_length[i - 1] + diff[i - 1]
+    return complementary_arc_length
 
 class PaulTrap():
-    def __init__(self, EC_L, EC_R, DC_L, DC_R, BIAS, position_vector, mass):
+    def __init__(self, mass):
         self.mass = mass
-        self.EC_L = EC_L
-        self.EC_R = EC_R
-        self.DC_L = DC_L
-        self.DC_R = DC_R
-        self.BIAS = BIAS
-        self.position_vector = position_vector-9.0 # to center the trap around 0
+        self.initialize_voltage_responses()
+        self.create_position_vector()
+        self.V_EC_L = 0
+        self.V_DC_L = 0
+        self.V_BIAS = 0
+        self.V_DC_R = 0
+        self.V_EC_R = 0
+
+    def initialize_voltage_responses(self):
+        script_dir = os.getcwd()
+        file_EC = os.path.join(script_dir, 'electrodes responses\Shuttling Endcap Smoothed.txt')
+        file_DC = os.path.join(script_dir, 'electrodes responses\Shuttling DC Smoothed.txt')
+        file_BIAS = os.path.join(script_dir, 'electrodes responses\Shuttling BIAS Smoothed.txt')
+
+        data_EC = np.loadtxt(file_EC, skiprows=8)
+        data_DC = np.loadtxt(file_DC, skiprows=8)
+        data_BIAS = np.loadtxt(file_BIAS, skiprows=8)
+
+        self.arc_length_EC_R = data_EC[:, 0]
+        self.EC_R = data_EC[:, 1]
+        self.EC_L = self.EC_R[::-1]
+        self.arc_length_EC_L = create_complementary_arc_length(self.arc_length_EC_R)
+
+        self.arc_length_DC_R = data_DC[:, 0]
+        self.DC_R = data_DC[:, 1]
+        self.DC_L = self.DC_R[::-1]
+        self.arc_length_DC_L = create_complementary_arc_length(self.arc_length_DC_R)
+
+        self.arc_length_BIAS = data_BIAS[:, 0]
+        self.BIAS = data_BIAS[:, 1]
+
+    def create_position_vector(self):
+        self.position_vector = np.mean(np.vstack((self.arc_length_BIAS, self.arc_length_DC_L, self.arc_length_EC_L, self.arc_length_DC_R, self.arc_length_EC_R)), axis=0)
 
     def set_voltages(self, V_EC_L, V_DC_L, V_BIAS, V_DC_R, V_EC_R):
         self.V_EC_L = V_EC_L
@@ -26,7 +62,7 @@ class PaulTrap():
 
     def plot_trap_potential(self):
         total_potential = self.get_trap_potential()
-        plt.figure(figsize=(6, 3))
+        plt.figure(figsize=(12, 9))
         plt.plot(self.position_vector, total_potential, label='Electric Potential')
         plt.title('Axial axis vs Electric Potential')
         plt.xlabel('Axial axis (mm)')
@@ -36,6 +72,7 @@ class PaulTrap():
         plt.show()
 
     def interactive_trap_potential(self):
+        #TODO: fix this function
         def update_potential(index, value):
             # Update the corresponding voltage
             voltages[index] = float(value)
