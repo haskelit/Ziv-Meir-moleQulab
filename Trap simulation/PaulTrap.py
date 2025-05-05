@@ -18,6 +18,9 @@ class PaulTrap():
         self.mass = mass
         self.initialize_voltage_responses()
         self.create_position_vector()
+        self.interpolate_potentials()
+        self.mirror_potentials()
+        self.shift_position_vector()
         self.V_EC_L = 0
         self.V_DC_L = 0
         self.V_BIAS = 0
@@ -36,19 +39,27 @@ class PaulTrap():
 
         self.arc_length_EC_R = data_EC[:, 0]
         self.EC_R = data_EC[:, 1]
-        self.EC_L = self.EC_R[::-1]
-        self.arc_length_EC_L = create_complementary_arc_length(self.arc_length_EC_R)
 
         self.arc_length_DC_R = data_DC[:, 0]
         self.DC_R = data_DC[:, 1]
-        self.DC_L = self.DC_R[::-1]
-        self.arc_length_DC_L = create_complementary_arc_length(self.arc_length_DC_R)
 
         self.arc_length_BIAS = data_BIAS[:, 0]
         self.BIAS = data_BIAS[:, 1]
 
     def create_position_vector(self):
-        self.position_vector = np.mean(np.vstack((self.arc_length_BIAS, self.arc_length_DC_L, self.arc_length_EC_L, self.arc_length_DC_R, self.arc_length_EC_R)), axis=0)
+        self.position_vector = np.linspace(self.arc_length_DC_R[0], self.arc_length_EC_R[-1], len(self.arc_length_EC_R))
+
+    def shift_position_vector(self):
+        self.position_vector -= self.position_vector[-1] / 2
+
+    def interpolate_potentials(self):
+        self.EC_R = np.interp(self.position_vector, self.arc_length_EC_R, self.EC_R)
+        self.BIAS = np.interp(self.position_vector, self.arc_length_BIAS, self.BIAS)
+        self.DC_R = np.interp(self.position_vector, self.arc_length_DC_R, self.DC_R)
+
+    def mirror_potentials(self):
+        self.EC_L = self.EC_R[::-1]
+        self.DC_L = self.DC_R[::-1]
 
     def set_voltages(self, V_EC_L, V_DC_L, V_BIAS, V_DC_R, V_EC_R):
         self.V_EC_L = V_EC_L
@@ -62,9 +73,22 @@ class PaulTrap():
 
     def plot_trap_potential(self):
         total_potential = self.get_trap_potential()
-        plt.figure(figsize=(12, 9))
+        plt.figure(figsize=(7, 5))
         plt.plot(self.position_vector, total_potential, label='Electric Potential')
         plt.title('Axial axis vs Electric Potential')
+        plt.xlabel('Axial axis (mm)')
+        plt.ylabel('Electric Potential (V)')
+        plt.tight_layout()
+        plt.show()
+
+    def plot_electrode_potentials(self):
+        plt.figure(figsize=(7, 5))
+        plt.plot(self.position_vector, self.EC_R, label='Endcap Right')
+        plt.plot(self.position_vector, self.DC_R, label='DC Right')
+        plt.plot(self.position_vector, self.BIAS, label='BIAS')
+        plt.plot(self.position_vector, self.EC_L, label='Endcap Left')
+        plt.plot(self.position_vector, self.DC_L, label='DC Left')
+        plt.title('Electrode Potentials')
         plt.xlabel('Axial axis (mm)')
         plt.ylabel('Electric Potential (V)')
         plt.legend()
