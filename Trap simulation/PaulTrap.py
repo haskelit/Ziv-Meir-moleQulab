@@ -53,10 +53,6 @@ class PaulTrap():
         self.position_vector -= self.position_vector[-1] / 2
 
     def interpolate_potentials(self):
-        # self.EC_R = np.interp(self.position_vector, self.arc_length_EC_R, self.EC_R)
-        # self.BIAS = np.interp(self.position_vector, self.arc_length_BIAS, self.BIAS)
-        # self.DC_R = np.interp(self.position_vector, self.arc_length_DC_R, self.DC_R)
-
         self.EC_R = interp1d(self.arc_length_EC_R, self.EC_R, kind='quadratic', fill_value="extrapolate")(self.position_vector)
         self.DC_R = interp1d(self.arc_length_DC_R, self.DC_R, kind='quadratic', fill_value="extrapolate")(self.position_vector)
         self.BIAS = interp1d(self.arc_length_BIAS, self.BIAS, kind='quadratic', fill_value="extrapolate")(self.position_vector)
