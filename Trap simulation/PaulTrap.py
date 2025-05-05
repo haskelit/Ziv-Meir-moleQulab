@@ -1,17 +1,17 @@
+import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 import tkinter as tk
 from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import os
+from scipy.interpolate import interp1d
 
-def create_complementary_arc_length(arc_length):
-    diff = np.diff(arc_length)
-    complementary_arc_length = np.zeros(len(arc_length))
-    diff = diff[::-1]
-    for i in range(1, len(arc_length)):
-        complementary_arc_length[i] = complementary_arc_length[i - 1] + diff[i - 1]
-    return complementary_arc_length
+
+def find_closest_index(array, value):
+    differences = np.abs(array - value)
+    index = np.argmin(differences)
+    return index
 
 class PaulTrap():
     def __init__(self, mass):
@@ -53,9 +53,13 @@ class PaulTrap():
         self.position_vector -= self.position_vector[-1] / 2
 
     def interpolate_potentials(self):
-        self.EC_R = np.interp(self.position_vector, self.arc_length_EC_R, self.EC_R)
-        self.BIAS = np.interp(self.position_vector, self.arc_length_BIAS, self.BIAS)
-        self.DC_R = np.interp(self.position_vector, self.arc_length_DC_R, self.DC_R)
+        # self.EC_R = np.interp(self.position_vector, self.arc_length_EC_R, self.EC_R)
+        # self.BIAS = np.interp(self.position_vector, self.arc_length_BIAS, self.BIAS)
+        # self.DC_R = np.interp(self.position_vector, self.arc_length_DC_R, self.DC_R)
+
+        self.EC_R = interp1d(self.arc_length_EC_R, self.EC_R, kind='quadratic', fill_value="extrapolate")(self.position_vector)
+        self.DC_R = interp1d(self.arc_length_DC_R, self.DC_R, kind='quadratic', fill_value="extrapolate")(self.position_vector)
+        self.BIAS = interp1d(self.arc_length_BIAS, self.BIAS, kind='quadratic', fill_value="extrapolate")(self.position_vector)
 
     def mirror_potentials(self):
         self.EC_L = self.EC_R[::-1]
@@ -96,7 +100,6 @@ class PaulTrap():
         plt.show()
 
     def interactive_trap_potential(self):
-        #TODO: fix this function
         def update_potential(index, value):
             # Update the corresponding voltage
             voltages[index] = float(value)
@@ -158,3 +161,33 @@ class PaulTrap():
 
         # Start the main event loop
         root.mainloop()
+
+    def fit_parabola(self, center_position, width): # all in mm
+        center_index = find_closest_index(self.position_vector, center_position)
+        gap_between_indices = (self.position_vector[1] - self.position_vector[0])
+        print(gap_between_indices)
+        start_index = center_index - int(width / (2 * gap_between_indices))
+        end_index = center_index + int(width / (2 * gap_between_indices))
+        print(start_index, end_index)
+        coefficients = np.polyfit(self.position_vector[start_index:end_index], self.get_trap_potential()[start_index:end_index], 2)
+        self.plot_with_fit(coefficients, start_index, end_index)
+        return coefficients
+
+    def plot_with_fit(self, coefficients, start_index, end_index):
+        plt.figure(figsize=(7, 5))
+        plt.scatter(self.position_vector[start_index:end_index], self.get_trap_potential()[start_index:end_index], label='Electric Potential', color='red', s=4)
+        x_fit = self.position_vector[start_index:end_index]
+        y_fit = np.polyval(coefficients, x_fit)
+        plt.plot(x_fit, y_fit, label='Parabola Fit')
+        plt.title('Axial axis vs Electric Potential with Parabola Fit')
+        plt.xlabel('Axial axis (mm)')
+        plt.ylabel('Electric Potential (V)')
+        plt.legend()
+        plt.tight_layout()
+        plt.show()
+
+    def get_trap_frequency(self, center_position, width):
+        coefficients = self.fit_parabola(center_position, width)
+        alpha = coefficients[0]
+
+
