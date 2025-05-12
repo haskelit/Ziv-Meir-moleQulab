@@ -14,8 +14,10 @@ def find_closest_index(array, value):
     return index
 
 class PaulTrap():
-    def __init__(self, mass):
+    def __init__(self, mass, RF_freq, charge=-1):
         self.mass = mass
+        self.charge = charge * 1.602e-19  # Convert charge to Coulombs
+        self.RF_freq = RF_freq
         self.initialize_voltage_responses()
         self.create_position_vector()
         self.interpolate_potentials()
@@ -161,10 +163,10 @@ class PaulTrap():
     def fit_parabola(self, center_position, width): # all in mm
         center_index = find_closest_index(self.position_vector, center_position)
         gap_between_indices = (self.position_vector[1] - self.position_vector[0])
-        print(gap_between_indices)
+        #print(gap_between_indices)
         start_index = center_index - int(width / (2 * gap_between_indices))
         end_index = center_index + int(width / (2 * gap_between_indices))
-        print(start_index, end_index)
+        #print(start_index, end_index)
         coefficients = np.polyfit(self.position_vector[start_index:end_index], self.get_trap_potential()[start_index:end_index], 2)
         self.plot_with_fit(coefficients, start_index, end_index)
         return coefficients
@@ -185,5 +187,9 @@ class PaulTrap():
     def get_trap_frequency(self, center_position, width):
         coefficients = self.fit_parabola(center_position, width)
         alpha = coefficients[0]
+        a_z = -4 * self.charge * self.V_DC_L * alpha / (self.mass * self.RF_freq**2)
+        omega_z = np.sqrt(a_z) * self.RF_freq / 2
+        print(alpha, a_z, omega_z)
+        return omega_z
 
 
