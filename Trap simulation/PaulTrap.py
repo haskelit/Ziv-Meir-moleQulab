@@ -14,7 +14,7 @@ def find_closest_index(array, value):
     return index
 
 class PaulTrap():
-    def __init__(self, mass, RF_freq, charge=-1):
+    def __init__(self, mass, RF_freq, charge=1):
         self.mass = mass
         self.charge = charge * 1.602e-19  # Convert charge to Coulombs
         self.RF_freq = RF_freq
@@ -144,7 +144,7 @@ class PaulTrap():
         frame.columnconfigure(1, weight=1)
 
         # Create a matplotlib figure and axis
-        fig, ax = plt.subplots(figsize=(8, 5))
+        fig, ax = plt.subplots(figsize=(4, 3))
         canvas = FigureCanvasTkAgg(fig, master=root)
         canvas.get_tk_widget().grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
 
@@ -186,10 +186,10 @@ class PaulTrap():
 
     def get_trap_frequency(self, center_position, width):
         coefficients = self.fit_parabola(center_position, width)
-        alpha = coefficients[0]
-        a_z = -4 * self.charge * self.V_DC_L * alpha / (self.mass * self.RF_freq**2)
-        omega_z = np.sqrt(a_z) * self.RF_freq / 2
-        print(alpha, a_z, omega_z)
+        alpha = coefficients[0] * 1e6
+        # a_z = -4 * self.charge * self.V_DC_L * alpha / (self.mass * self.RF_freq**2)
+        omega_z = np.sqrt(2* alpha * self.charge / self.mass)
+        # print(alpha, a_z, omega_z)
         return omega_z
 
 
