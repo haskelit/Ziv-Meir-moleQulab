@@ -15,12 +15,13 @@ def find_closest_index(array, value):
 
 class PaulTrap():
     def __init__(self, mass, RF_freq, charge=1):
-        self.mass = mass
+        self.mass = mass * 1.66e-27 # atomic mass unit in kg
         self.charge = charge * 1.602e-19  # Convert charge to Coulombs
         self.RF_freq = RF_freq
         self.initialize_voltage_responses()
         self.create_position_vector()
         self.interpolate_potentials()
+        self.add_effective_AC_potential()
         self.mirror_potentials()
         self.shift_position_vector()
         self.V_EC_L = 0
@@ -28,6 +29,11 @@ class PaulTrap():
         self.V_BIAS = 0
         self.V_DC_R = 0
         self.V_EC_R = 0
+        self.AC_V_EC_L = 0
+        self.AC_V_DC_L = 0
+        self.AC_V_BIAS = 0
+        self.AC_V_DC_R = 0
+        self.AC_V_EC_R = 0
 
     def initialize_voltage_responses(self):
         script_dir = os.getcwd()
@@ -59,19 +65,38 @@ class PaulTrap():
         self.DC_R = interp1d(self.arc_length_DC_R, self.DC_R, kind='quadratic', fill_value="extrapolate")(self.position_vector)
         self.BIAS = interp1d(self.arc_length_BIAS, self.BIAS, kind='quadratic', fill_value="extrapolate")(self.position_vector)
 
+    def add_effective_AC_potential(self):
+        self.effective_AC_EC_R = (self.charge / (4 * self.mass * self.RF_freq**2)) * (np.gradient(self.EC_R, self.position_vector)**2)
+        self.effective_AC_DC_R = (self.charge / (4 * self.mass * self.RF_freq**2)) * (np.gradient(self.DC_R, self.position_vector)**2)
+        self.effective_AC_BIAS = (self.charge / (4 * self.mass * self.RF_freq**2)) * (np.gradient(self.BIAS, self.position_vector)**2)
+
     def mirror_potentials(self):
         self.EC_L = self.EC_R[::-1]
         self.DC_L = self.DC_R[::-1]
+        self.effective_AC_EC_L = self.effective_AC_EC_R[::-1]
+        self.effective_AC_DC_L = self.effective_AC_DC_R[::-1]
 
-    def set_voltages(self, V_EC_L, V_DC_L, V_BIAS, V_DC_R, V_EC_R):
+    def set_DC_voltages(self, V_EC_L, V_DC_L, V_BIAS, V_DC_R, V_EC_R):
         self.V_EC_L = V_EC_L
         self.V_DC_L = V_DC_L
         self.V_BIAS = V_BIAS
         self.V_DC_R = V_DC_R
         self.V_EC_R = V_EC_R
 
+    def set_AC_voltages(self, AC_V_EC_L, AC_V_DC_L, AC_V_BIAS, AC_V_DC_R, AC_V_EC_R):
+        self.AC_V_EC_L = AC_V_EC_L
+        self.AC_V_DC_L = AC_V_DC_L
+        self.AC_V_BIAS = AC_V_BIAS
+        self.AC_V_DC_R = AC_V_DC_R
+        self.AC_V_EC_R = AC_V_EC_R
+
     def get_trap_potential(self):
-        return self.V_EC_R*self.EC_R + self.V_EC_L*self.EC_L + self.V_DC_R*self.DC_R + self.V_DC_L*self.DC_L + self.V_BIAS*self.BIAS
+        return (self.V_EC_R * self.EC_R + (self.AC_V_EC_R**2) * self.effective_AC_EC_R +
+                self.V_EC_L * self.EC_L + (self.AC_V_EC_L**2) * self.effective_AC_EC_L +
+                self.V_DC_R * self.DC_R + (self.AC_V_DC_R**2) * self.effective_AC_DC_R +
+                self.V_DC_L * self.DC_L + (self.AC_V_DC_L**2) * self.effective_AC_DC_L +
+                self.V_BIAS * self.BIAS + (self.AC_V_BIAS**2) * self.effective_AC_BIAS
+                )
 
     def plot_trap_potential(self):
         total_potential = self.get_trap_potential()
@@ -90,6 +115,11 @@ class PaulTrap():
         plt.plot(self.position_vector, self.BIAS, label='BIAS')
         plt.plot(self.position_vector, self.EC_L, label='Endcap Left')
         plt.plot(self.position_vector, self.DC_L, label='DC Left')
+        plt.plot(self.position_vector, self.effective_AC_EC_R, label='Effective AC Endcap Right')
+        plt.plot(self.position_vector, self.effective_AC_DC_R, label='Effective AC DC Right')
+        plt.plot(self.position_vector, self.effective_AC_EC_L, label='Effective AC Endcap Left')
+        plt.plot(self.position_vector, self.effective_AC_DC_L, label='Effective AC DC Left')
+        plt.plot(self.position_vector, self.effective_AC_BIAS, label='Effective AC BIAS')
         plt.title('Electrode Potentials')
         plt.xlabel('Axial axis (mm)')
         plt.ylabel('Electric Potential (V)')
@@ -188,7 +218,7 @@ class PaulTrap():
         coefficients = self.fit_parabola(center_position, width)
         alpha = coefficients[0] * 1e6
         # a_z = -4 * self.charge * self.V_DC_L * alpha / (self.mass * self.RF_freq**2)
-        omega_z = np.sqrt(2* alpha * self.charge / self.mass)
+        omega_z = np.sqrt(alpha * self.charge / self.mass)
         # print(alpha, a_z, omega_z)
         return omega_z
 
