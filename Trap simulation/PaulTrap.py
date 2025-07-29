@@ -6,6 +6,7 @@ from tkinter import ttk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import os
 from scipy.interpolate import interp1d
+from scipy.constants import k
 
 
 def find_closest_index(array, value):
@@ -62,7 +63,7 @@ class PaulTrap():
         self.BIAS = interp1d(self.arc_length_BIAS, self.BIAS, kind='quadratic', fill_value="extrapolate")(self.position_vector)
 
     def add_effective_AC_potential(self):
-        self.effective_AC_potential = (self.charge / (4 * self.mass * self.RF_freq**2)) * (np.gradient(self.DC_R + self.DC_L + self.BIAS, self.position_vector)**2)
+        self.effective_AC_potential = (self.charge / (4 * self.mass * self.RF_freq**2)) * (np.gradient(self.DC_R + self.DC_L + self.BIAS, self.position_vector/1000)**2)
 
     def mirror_potentials(self):
         self.EC_L = self.EC_R[::-1]
@@ -113,7 +114,7 @@ class PaulTrap():
         plt.tight_layout()
         plt.show()
 
-    def interactive_trap_potential(self):
+    def plot_interactive_trap_potential(self):
         def update_potential(index, value):
             # Update the corresponding voltage
             voltages[index] = float(value)
@@ -203,9 +204,12 @@ class PaulTrap():
     def get_trap_frequency(self, center_position, width):
         coefficients = self.fit_parabola(center_position, width)
         alpha = coefficients[0] * 1e6
-        # a_z = -4 * self.charge * self.V_DC_L * alpha / (self.mass * self.RF_freq**2)
         omega_z = np.sqrt(2 * alpha * self.charge / self.mass)
-        # print(alpha, a_z, omega_z)
         return omega_z
+
+    def get_RF_barrier(self):
+        RF_barrier = np.max(self.AC_Voltage**2 * self.effective_AC_potential)
+        return RF_barrier, RF_barrier*self.charge/k
+
 
 
